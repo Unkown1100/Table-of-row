@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Periodic Table 3D</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+
+  #container {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+  }
+
+  #scene {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 0; height: 0;
+    perspective: 1200px;
+  }
+
+  #world {
+    position: absolute;
+    transform-style: preserve-3d;
+    transition: transform 1s;
+  }
+
+  .element {
+    position: absolute;
+    width: 128px; height: 144px;
+    margin: -72px 0 0 -64px;
+    border-radius: 6px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.15) inset;
+    background: rgba(20, 10, 10, 0.85);
+    text-align: center;
+    line-height: normal;
+    cursor: pointer;
+    transition: background-color 0.6s, box-shadow 0.6s, opacity 0.6s,
+                transform 1.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .element .number {
+    position: absolute;
+    top: 8px; left: 10px;
+    font-size: 15px;
+    color: rgba(255,255,255,0.55);
+  }
+
+  .element .symbol {
+    position: absolute;
+    top: 30px; left: 0; right: 0;
+    font-size: 40px;
+    font-weight: bold;
+    line-height: 42px;
+  }
+
+  .element .details {
+    position: absolute;
+    bottom: 10px; left: 0; right: 0;
+    font-size: 12px;
+    letter-spacing: 0.3px;
+    color: rgba(255,255,255,0.75);
+    padding: 0 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cat-alkali      { color: #ff9a6a; box-shadow: 0 0 0 1px rgba(255,154,106,0.5) inset, 0 0 18px -4px rgba(255,120,60,0.8); }
+  .cat-alkaline    { color: #ffd27a; box-shadow: 0 0 0 1px rgba(255,210,122,0.5) inset, 0 0 18px -4px rgba(255,190,90,0.8); }
+  .cat-transition  { color: #9adfff; box-shadow: 0 0 0 1px rgba(154,223,255,0.5) inset, 0 0 18px -4px rgba(90,190,255,0.8); }
+  .cat-posttrans   { color: #b6f2c2; box-shadow: 0 0 0 1px rgba(182,242,194,0.5) inset, 0 0 18px -4px rgba(120,220,150,0.8); }
+  .cat-metalloid   { color: #d9e27a; box-shadow: 0 0 0 1px rgba(217,226,122,0.5) inset, 0 0 18px -4px rgba(200,215,70,0.8); }
+  .cat-nonmetal    { color: #b6ffb0; box-shadow: 0 0 0 1px rgba(182,255,176,0.5) inset, 0 0 18px -4px rgba(120,255,110,0.8); }
+  .cat-halogen     { color: #ff8a8a; box-shadow: 0 0 0 1px rgba(255,138,138,0.5) inset, 0 0 18px -4px rgba(255,90,90,0.9); }
+  .cat-noble       { color: #c9a6ff; box-shadow: 0 0 0 1px rgba(201,166,255,0.5) inset, 0 0 18px -4px rgba(170,120,255,0.85); }
+  .cat-lanthanide  { color: #ffb0e0; box-shadow: 0 0 0 1px rgba(255,176,224,0.5) inset, 0 0 18px -4px rgba(255,120,200,0.8); }
+  .cat-actinide    { color: #ffc98a; box-shadow: 0 0 0 1px rgba(255,201,138,0.5) inset, 0 0 18px -4px rgba(255,170,90,0.8); }
+  .cat-unknown     { color: #cfcfcf; box-shadow: 0 0 0 1px rgba(207,207,207,0.4) inset, 0 0 14px -4px rgba(200,200,200,0.6); }
+
+  .element:hover {
+    box-shadow: 0 0 0 1.5px rgba(255,255,255,0.9) inset, 0 0 26px -2px rgba(255,255,255,0.9);
+    z-index: 10;
+  }
+
+  .element.selected {
+    box-shadow: 0 0 0 2px #fff inset, 0 0 34px -2px rgba(255,255,255,1);
+    z-index: 11;
+  }
+
+
+
+  #menu {
+    position: absolute;
+    top: 18px; left: 0; right: 0;
+    text-align: center;
+    z-index: 100;
+  }
+
+  #menu button {
+    background: rgba(15,15,15,0.85);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.55);
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    padding: 8px 18px;
+    margin: 0 3px;
+    cursor: pointer;
+    border-radius: 3px;
+    text-transform: lowercase;
+    transition: all 0.25s;
+  }
+
+  #menu button:hover {
+    color: rgba(255,255,255,0.9);
+    border-color: rgba(255,255,255,0.4);
+  }
+
+  #menu button.active {
+    background: rgba(240,240,240,0.92);
+    color: #111;
+    border-color: rgba(255,255,255,0.9);
+  }
+
+  #hint {
+    position: absolute;
+    bottom: 14px; left: 0; right: 0;
+    text-align: center;
+    color: rgba(255,255,255,0.28);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  #container { cursor: default; }
+
+  #meaning-tip {
+    position: fixed;
+    z-index: 200;
+    max-width: 220px;
+    background: rgba(10,10,10,0.95);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 5px;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: rgba(255,255,255,0.9);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s, transform 0.15s;
+  }
+
+  #meaning-tip.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #meaning-tip .tip-title {
+    font-weight: bold;
+    margin-bottom: 3px;
+    color: #fff;
+  }
+
+  #card-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+    z-index: 250;
+  }
+
+  #card-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  #info-panel {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    z-index: 300;
+    width: 260px;
+    background: rgba(8,8,8,0.96);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 8px;
+    padding: 16px 18px;
+    color: rgba(255,255,255,0.9);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+    transition: opacity 0.25s, transform 0.25s;
+    box-shadow: 0 8px 40px -8px rgba(0,0,0,0.8);
+    transform-origin: center center;
+  }
+
+  #info-panel.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  #info-panel .panel-close {
+    position: absolute;
+    top: 8px; right: 10px;
+    cursor: pointer;
+    color: rgba(255,255,255,0.5);
+    font-size: 16px;
+    line-height: 1;
+    transition: color 0.2s;
+  }
+
+  #info-panel .panel-close:hover {
+    color: rgba(255,255,255,0.95);
+  }
+
+  #info-panel .panel-number {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.5px;
+  }
+
+  #info-panel .panel-symbol {
+    font-size: 40px;
+    font-weight: bold;
+    line-height: 1.1;
+    margin: 2px 0 4px;
+  }
+
+  #info-panel .panel-name {
+    font-size: 15px;
+    margin-bottom: 2px;
+  }
+
+  #info-panel .panel-category {
+    font-size: 11px;
+    text-transform: capitalize;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 10px;
+    letter-spacing: 0.3px;
+  }
+
+  #info-panel .panel-meaning {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.85);
+  }
+
+  #info-panel .panel-extra {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.65);
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+  }
+
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <button data-mode="table">table</button>
+  <button data-mode="sphere">sphere</button>
+  <button data-mode="helix">helix</button>
+  <button data-mode="grid">grid</button>
+</div>
+
+<div id="container">
+  <div id="scene">
+    <div id="world"></div>
+  </div>
+</div>
+
+<div id="hint">move your cursor to tilt &middot; click and drag to rotate freely &middot; click an element for details</div>
+
+<div id="meaning-tip"></div>
+
+<div id="card-overlay"></div>
+
+<div id="info-panel">
+  <div class="panel-close">&times;</div>
+  <div class="panel-number"></div>
+  <div class="panel-symbol"></div>
+  <div class="panel-name"></div>
+  <div class="panel-category"></div>
+  <div class="panel-meaning"></div>
+  <div class="panel-extra"></div>
+</div>
+
+<script>
+(function () {
+
+  var ELEMENTS = [
+    [1,"H","Hydrogen","nonmetal",1,1],
+    [2,"He","Helium","noble",1,18],
+    [3,"Li","Lithium","alkali",2,1],
+    [4,"Be","Beryllium","alkaline",2,2],
+    [5,"B","Boron","metalloid",2,13],
+    [6,"C","Carbon","nonmetal",2,14],
+    [7,"N","Nitrogen","nonmetal",2,15],
+    [8,"O","Oxygen","nonmetal",2,16],
+    [9,"F","Fluorine","halogen",2,17],
+    [10,"Ne","Neon","noble",2,18],
+    [11,"Na","Sodium","alkali",3,1],
+    [12,"Mg","Magnesium","alkaline",3,2],
+    [13,"Al","Aluminium","posttrans",3,13],
+    [14,"Si","Silicon","metalloid",3,14],
+    [15,"P","Phosphorus","nonmetal",3,15],
+    [16,"S","Sulfur","nonmetal",3,16],
+    [17,"Cl","Chlorine","halogen",3,17],
+    [18,"Ar","Argon","noble",3,18],
+    [19,"K","Potassium","alkali",4,1],
+    [20,"Ca","Calcium","alkaline",4,2],
+    [21,"Sc","Scandium","transition",4,3],
+    [22,"Ti","Titanium","transition",4,4],
+    [23,"V","Vanadium","transition",4,5],
+    [24,"Cr","Chromium","transition",4,6],
+    [25,"Mn","Manganese","transition",4,7],
+    [26,"Fe","Iron","transition",4,8],
+    [27,"Co","Cobalt","transition",4,9],
+    [28,"Ni","Nickel","transition",4,10],
+    [29,"Cu","Copper","transition",4,11],
+    [30,"Zn","Zinc","transition",4,12],
+    [31,"Ga","Gallium","posttrans",4,13],
+    [32,"Ge","Germanium","metalloid",4,14],
+    [33,"As","Arsenic","metalloid",4,15],
+    [34,"Se","Selenium","nonmetal",4,16],
+    [35,"Br","Bromine","halogen",4,17],
+    [36,"Kr","Krypton","noble",4,18],
+    [37,"Rb","Rubidium","alkali",5,1],
+    [38,"Sr","Strontium","alkaline",5,2],
+    [39,"Y","Yttrium","transition",5,3],
+    [40,"Zr","Zirconium","transition",5,4],
+    [41,"Nb","Niobium","transition",5,5],
+    [42,"Mo","Molybdenum","transition",5,6],
+    [43,"Tc","Technetium","transition",5,7],
+    [44,"Ru","Ruthenium","transition",5,8],
+    [45,"Rh","Rhodium","transition",5,9],
+    [46,"Pd","Palladium","transition",5,10],
+    [47,"Ag","Silver","transition",5,11],
+    [48,"Cd","Cadmium","transition",5,12],
+    [49,"In","Indium","posttrans",5,13],
+    [50,"Sn","Tin","posttrans",5,14],
+    [51,"Sb","Antimony","metalloid",5,15],
+    [52,"Te","Tellurium","metalloid",5,16],
+    [53,"I","Iodine","halogen",5,17],
+    [54,"Xe","Xenon","noble",5,18],
+    [55,"Cs","Caesium","alkali",6,1],
+    [56,"Ba","Barium","alkaline",6,2],
+    [57,"La","Lanthanum","lanthanide",9,3],
+    [58,"Ce","Cerium","lanthanide",9,4],
+    [59,"Pr","Praseodymium","lanthanide",9,5],
+    [60,"Nd","Neodymium","lanthanide",9,6],
+    [61,"Pm","Promethium","lanthanide",9,7],
+    [62,"Sm","Samarium","lanthanide",9,8],
+    [63,"Eu","Europium","lanthanide",9,9],
+    [64,"Gd","Gadolinium","lanthanide",9,10],
+    [65,"Tb","Terbium","lanthanide",9,11],
+    [66,"Dy","Dysprosium","lanthanide",9,12],
+    [67,"Ho","Holmium","lanthanide",9,13],
+    [68,"Er","Erbium","lanthanide",9,14],
+    [69,"Tm","Thulium","lanthanide",9,15],
+    [70,"Yb","Ytterbium","lanthanide",9,16],
+    [71,"Lu","Lutetium","lanthanide",9,17],
+    [72,"Hf","Hafnium","transition",6,4],
+    [73,"Ta","Tantalum","transition",6,5],
+    [74,"W","Tungsten","transition",6,6],
+    [75,"Re","Rhenium","transition",6,7],
+    [76,"Os","Osmium","transition",6,8],
+    [77,"Ir","Iridium","transition",6,9],
+    [78,"Pt","Platinum","transition",6,10],
+    [79,"Au","Gold","transition",6,11],
+    [80,"Hg","Mercury","transition",6,12],
+    [81,"Tl","Thallium","posttrans",6,13],
+    [82,"Pb","Lead","posttrans",6,14],
+    [83,"Bi","Bismuth","posttrans",6,15],
+    [84,"Po","Polonium","posttrans",6,16],
+    [85,"At","Astatine","halogen",6,17],
+    [86,"Rn","Radon","noble",6,18],
+    [87,"Fr","Francium","alkali",7,1],
+    [88,"Ra","Radium","alkaline",7,2],
+    [89,"Ac","Actinium","actinide",10,3],
+    [90,"Th","Thorium","actinide",10,4],
+    [91,"Pa","Protactinium","actinide",10,5],
+    [92,"U","Uranium","actinide",10,6],
+    [93,"Np","Neptunium","actinide",10,7],
+    [94,"Pu","Plutonium","actinide",10,8],
+    [95,"Am","Americium","actinide",10,9],
+    [96,"Cm","Curium","actinide",10,10],
+    [97,"Bk","Berkelium","actinide",10,11],
+    [98,"Cf","Californium","actinide",10,12],
+    [99,"Es","Einsteinium","actinide",10,13],
+    [100,"Fm","Fermium","actinide",10,14],
+    [101,"Md","Mendelevium","actinide",10,15],
+    [102,"No","Nobelium","actinide",10,16],
+    [103,"Lr","Lawrencium","actinide",10,17],
+    [104,"Rf","Rutherfordium","transition",7,4],
+    [105,"Db","Dubnium","transition",7,5],
+    [106,"Sg","Seaborgium","transition",7,6],
+    [107,"Bh","Bohrium","transition",7,7],
+    [108,"Hs","Hassium","transition",7,8],
+    [109,"Mt","Meitnerium","unknown",7,9],
+    [110,"Ds","Darmstadtium","unknown",7,10],
+    [111,"Rg","Roentgenium","unknown",7,11],
+    [112,"Cn","Copernicium","unknown",7,12],
+    [113,"Nh","Nihonium","unknown",7,13],
+    [114,"Fl","Flerovium","unknown",7,14],
+    [115,"Mc","Moscovium","unknown",7,15],
+    [116,"Lv","Livermorium","unknown",7,16],
+    [117,"Ts","Tennessine","unknown",7,17],
+    [118,"Og","Oganesson","noble",7,18]
+  ];
+
+  var MEANINGS = {
+    1: "Lightest element. Powers the sun and stars.",
+    2: "A light gas that makes balloons float.",
+    3: "Used in phone and laptop batteries.",
+    4: "A light, strong metal used in spacecraft parts.",
+    5: "Used to make glass and detergents strong.",
+    6: "The base of all living things, like diamonds and coal.",
+    7: "Makes up most of the air we breathe.",
+    8: "The gas we breathe to stay alive.",
+    9: "Added to toothpaste to protect teeth.",
+    10: "Glows bright red-orange in signs and lights.",
+    11: "Found in table salt.",
+    12: "Burns bright white, used in fireworks.",
+    13: "Light metal used in soda cans and foil.",
+    14: "Used to make computer chips and glass.",
+    15: "Needed for healthy bones and DNA.",
+    16: "Gives rotten eggs their bad smell.",
+    17: "Used to clean and disinfect water.",
+    18: "Fills light bulbs to stop them burning out.",
+    19: "Important for muscles and nerves to work.",
+    20: "Makes bones and teeth strong.",
+    21: "Rare metal used in aerospace parts.",
+    22: "Strong, light metal used in jets and implants.",
+    23: "Makes steel tougher and harder.",
+    24: "Gives stainless steel its shine.",
+    25: "Helps make steel strong and rust-resistant.",
+    26: "The main metal in steel; found in blood too.",
+    27: "Gives certain paints and glass a deep blue color.",
+    28: "Used in coins and rechargeable batteries.",
+    29: "Carries electricity in wires.",
+    30: "Coats metal to stop it from rusting.",
+    31: "Melts in your hand; used in electronics.",
+    32: "Used in fiber optic cables and camera lenses.",
+    33: "A toxic element once used in old pesticides.",
+    34: "Helps solar panels turn light into power.",
+    35: "Used in some flame-resistant materials.",
+    36: "A gas used to fill energy-saving light bulbs.",
+    37: "A soft metal used in atomic clocks.",
+    38: "Burns bright red in fireworks.",
+    39: "Used in LED lights and camera lenses.",
+    40: "Resists heat, used in nuclear reactors.",
+    41: "Used to make strong metal alloys.",
+    42: "Strengthens steel for tools and engines.",
+    43: "A man-made element used in medical scans.",
+    44: "A rare metal used to harden other metals.",
+    45: "Used in car exhausts to cut pollution.",
+    46: "Used in jewelry and car exhaust systems.",
+    47: "A shiny metal used in jewelry and mirrors.",
+    48: "Used in old rechargeable batteries.",
+    49: "Used in touchscreens and solar panels.",
+    50: "Coats steel cans to stop them rusting.",
+    51: "Used to make batteries and flame-proof material.",
+    52: "Used in solar panels and CDs.",
+    53: "Used as an antiseptic on cuts.",
+    54: "Used in bright camera flashbulbs.",
+    55: "Used in the most accurate atomic clocks.",
+    56: "Used in hospital scans to see the stomach.",
+    57: "Used in camera lenses and lighter flints.",
+    58: "Used in lighter flints and glass polishing.",
+    59: "Gives magnets and glass a yellow-green tint.",
+    60: "Used in powerful magnets and lasers.",
+    61: "A rare radioactive element used in nuclear batteries.",
+    62: "Used in strong magnets and headphones.",
+    63: "Used to make red color in TV and phone screens.",
+    64: "Used in MRI scans in hospitals.",
+    65: "Used in lasers and TV screens.",
+    66: "Used in powerful magnets and lasers.",
+    67: "Used in the strongest man-made magnets.",
+    68: "Used to boost signals in fiber optic cables.",
+    69: "A rare metal used in portable X-ray machines.",
+    70: "Used in lasers and steel-making.",
+    71: "Used in oil refining and cancer treatment.",
+    72: "Used in nuclear reactor control rods.",
+    73: "Very resistant to corrosion, used in surgical tools.",
+    74: "Has the highest melting point of any metal.",
+    75: "Used in jet engine parts.",
+    76: "One of the densest metals known.",
+    77: "Extremely hard metal, used in spark plugs.",
+    78: "A precious metal used in jewelry and catalysts.",
+    79: "A precious, shiny metal used in jewelry and wiring.",
+    80: "A liquid metal at room temperature.",
+    81: "Once used in rat poison, now rarely used.",
+    82: "A heavy metal once used in pipes and paint.",
+    83: "Used in stomach medicine like Pepto-Bismol.",
+    84: "A rare radioactive element, dangerous in large amounts.",
+    85: "One of the rarest elements on Earth.",
+    86: "A radioactive gas that can seep into basements.",
+    87: "One of the rarest, most unstable natural elements.",
+    88: "A radioactive element once used in glow-in-dark paint.",
+    89: "A radioactive metal used in research.",
+    90: "Used as fuel in some nuclear reactors.",
+    91: "A rare, radioactive element with few uses.",
+    92: "Fuel used in nuclear power plants and bombs.",
+    93: "A man-made radioactive element.",
+    94: "Used as fuel in nuclear weapons and space probes.",
+    95: "Used in household smoke detectors.",
+    96: "A man-made element used in scientific research.",
+    97: "A man-made element with no practical uses yet.",
+    98: "Used to start up nuclear reactors.",
+    99: "First found in debris from a hydrogen bomb test.",
+    100: "Named after physicist Enrico Fermi.",
+    101: "Named after chemist Dmitri Mendeleev.",
+    102: "Named after physicist Alfred Nobel.",
+    103: "Named after physicist Ernest Lawrence.",
+    104: "Named after physicist Ernest Rutherford.",
+    105: "Named after the city of Dubna, Russia.",
+    106: "Named after physicist Glenn Seaborg.",
+    107: "Named after physicist Niels Bohr.",
+    108: "Named after the state of Hesse, Germany.",
+    109: "Named after physicist Lise Meitner.",
+    110: "Named after the city of Darmstadt, Germany.",
+    111: "Named after physicist Wilhelm Röntgen.",
+    112: "Named after astronomer Nicolaus Copernicus.",
+    113: "Named after Japan (Nihon), where it was made.",
+    114: "Named after the Russian Flerov Laboratory.",
+    115: "Named after the Moscow region of Russia.",
+    116: "Named after Lawrence Livermore Lab in California.",
+    117: "Named after the U.S. state of Tennessee.",
+    118: "The heaviest element made so far; very unstable."
+  };
+
+  var EXTRA_INFO = {
+    1: "Discovered by Henry Cavendish in 1766, it is a colorless, odorless gas and the most abundant element in the universe.",
+    2: "First detected in the Sun's spectrum in 1868, years before it was found on Earth. It is the second most abundant element in the universe.",
+    3: "Discovered in 1817 by Johan August Arfwedson, it is the lightest metal and the lightest solid element on the periodic table.",
+    4: "Discovered in 1798 by Louis-Nicolas Vauquelin, it is toxic in raw form but valued in industry for its stiffness and very low weight.",
+    5: "Isolated in 1808 by Joseph Louis Gay-Lussac and Louis Jacques Thénard, this metalloid is also an essential micronutrient for plant growth.",
+    6: "Known since ancient times, carbon forms more compounds than any other element and is the chemical basis of all organic life.",
+    7: "Discovered by Daniel Rutherford in 1772, it makes up about 78 percent of the air in Earth's atmosphere.",
+    8: "Discovered independently by Carl Wilhelm Scheele and Joseph Priestley in the 1770s, it makes up about 21 percent of Earth's atmosphere.",
+    9: "Isolated in 1886 by Henri Moissan after decades of failed attempts, it is the most reactive and electronegative of all elements.",
+    10: "Discovered in 1898 by William Ramsay and Morris Travers, it produces the distinctive reddish-orange glow seen in neon signs.",
+    11: "Isolated in 1807 by Humphry Davy through electrolysis, it reacts violently with water and is essential for nerve signaling in the body.",
+    12: "Isolated in 1808 by Humphry Davy, it burns with a bright white flame and is a key part of chlorophyll in plants.",
+    13: "Isolated in 1825 by Hans Christian Ørsted, it is the most abundant metal in Earth's crust.",
+    14: "Isolated in 1824 by Jöns Jacob Berzelius, it is the second most abundant element in Earth's crust after oxygen.",
+    15: "Discovered in 1669 by Hennig Brand while experimenting with urine, it glows faintly in the dark due to slow oxidation.",
+    16: "Known since antiquity and referred to as brimstone in ancient texts, it is essential to the structure of many proteins.",
+    17: "Isolated in 1774 by Carl Wilhelm Scheele, it is a dense, greenish-yellow gas with a sharp, irritating smell.",
+    18: "Discovered in 1894 by Lord Rayleigh and William Ramsay, it makes up almost one percent of Earth's atmosphere.",
+    19: "Isolated in 1807 by Humphry Davy from potash, it is highly reactive and bursts into flame on contact with water.",
+    20: "Isolated in 1808 by Humphry Davy, it is the fifth most abundant element in Earth's crust and a key building block of bone.",
+    21: "Discovered in 1879 by Lars Fredrik Nilson, its existence had already been predicted by Dmitri Mendeleev's periodic table.",
+    22: "Discovered in 1791 by William Gregor, it is prized in aerospace and medicine for its outstanding strength-to-weight ratio.",
+    23: "Discovered in 1801 by Andrés Manuel del Río, it is named after Vanadis, a Norse goddess known for her beauty.",
+    24: "Isolated in 1797 by Louis Nicolas Vauquelin, its name comes from the Greek word for color due to its vividly colored compounds.",
+    25: "Isolated in 1774 by Johan Gottlieb Gahn, it is essential to modern steelmaking, improving strength and resistance to rust.",
+    26: "Known and worked since prehistoric times, it is the most common element on Earth by mass and forms most of the planet's core.",
+    27: "Discovered in 1735 by Georg Brandt, it takes its name from 'kobold,' a mischievous sprite blamed by miners for troublesome ore.",
+    28: "Isolated in 1751 by Axel Fredrik Cronstedt, it is prized for being highly resistant to corrosion.",
+    29: "One of the first metals ever worked by humans, it remains the standard material for carrying electricity through wires.",
+    30: "Isolated in 1746 by Andreas Sigismund Marggraf, it is an essential trace element for human immune function.",
+    31: "Discovered in 1875 by Paul-Émile Lecoq de Boisbaudran, it famously melts into liquid when held in a warm hand.",
+    32: "Discovered in 1886 by Clemens Winkler, it fulfilled a gap Mendeleev had predicted and called 'eka-silicon.'",
+    33: "Known since ancient times, it was historically infamous as an odorless, tasteless poison favored by assassins.",
+    34: "Discovered in 1817 by Jöns Jacob Berzelius, its electrical conductivity increases sharply when exposed to light.",
+    35: "Discovered in 1826 by Antoine Balard, it is the only nonmetallic element that exists as a liquid at room temperature.",
+    36: "Discovered in 1898 by William Ramsay and Morris Travers, its orange-red spectral line once helped define the length of the meter.",
+    37: "Discovered in 1861 by Robert Bunsen and Gustav Kirchhoff using a spectroscope, it ignites spontaneously when exposed to air.",
+    38: "Isolated in 1808 by Humphry Davy, it is named after Strontian, the Scottish village where its ore was first found.",
+    39: "Discovered in 1794 by Johan Gadolin, it is named after Ytterby, the Swedish village near where four different elements were found.",
+    40: "Isolated in 1824 by Jöns Jacob Berzelius, it resists corrosion so well that it is used to build the cores of nuclear reactors.",
+    41: "Discovered in 1801 by Charles Hatchett, it is a key ingredient in the superconducting magnets used in MRI machines.",
+    42: "Isolated in 1781 by Peter Jacob Hjelm, it has one of the highest melting points of any element.",
+    43: "First produced artificially in 1937, it was the first element made by humans rather than found in nature, and is now widely used in medical imaging.",
+    44: "Discovered in 1844 by Karl Ernst Claus, it is one of the rarest and most expensive of the precious metals.",
+    45: "Discovered in 1803 by William Hyde Wollaston, it is prized for its brilliant, tarnish-resistant shine.",
+    46: "Discovered in 1803 by William Hyde Wollaston, it can absorb up to 900 times its own volume of hydrogen gas.",
+    47: "Valued since antiquity for its brilliant shine, it remains the best natural conductor of electricity of any metal.",
+    48: "Discovered in 1817 by Friedrich Stromeyer, it is highly toxic and was once common in rechargeable nickel-cadmium batteries.",
+    49: "Discovered in 1863 by Ferdinand Reich and Hieronymous Theodor Richter, it is named for the bright indigo line seen in its spectrum.",
+    50: "Alloyed with copper to make bronze since roughly 3000 BC, it remains one of humanity's oldest known metals.",
+    51: "Known since antiquity and used in ancient Egyptian cosmetics, it hardens lead alloys used in batteries and solder.",
+    52: "Discovered in 1782 by Franz-Joseph Müller von Reichenstein, it is rarer in Earth's crust than gold.",
+    53: "Discovered in 1811 by Bernard Courtois, it produces a striking violet vapor when its crystals are gently heated.",
+    54: "Discovered in 1898 by William Ramsay and Morris Travers, it is used in some high-intensity car headlights and spacecraft ion engines.",
+    55: "Discovered in 1860 by Robert Bunsen and Gustav Kirchhoff, its atomic vibrations define the length of the modern second.",
+    56: "Isolated in 1808 by Humphry Davy, its compounds burn with a vivid green flame in fireworks displays.",
+    57: "Discovered in 1839 by Carl Gustaf Mosander, it lends its name to the entire lanthanide series of elements.",
+    58: "Discovered in 1803, it is the most abundant of all the rare earth elements despite the misleading name of that group.",
+    59: "Discovered in 1885 by Carl Auer von Welsbach, its compounds give a distinctive yellow-green color to glass and enamels.",
+    60: "Discovered in 1885 by Carl Auer von Welsbach, it is the key ingredient in the strongest permanent magnets ever made.",
+    61: "First produced in 1945, every isotope is radioactive, so it does not occur naturally on Earth in any usable quantity.",
+    62: "Discovered in 1879 by Paul-Émile Lecoq de Boisbaudran, it is used in compact, high-strength magnets for headphones and motors.",
+    63: "Discovered in 1901 by Eugène-Anatole Demarçay, it once provided the red phosphor glow in older television screens.",
+    64: "Discovered in 1880 by Jean Charles Galissard de Marignac, its compounds are injected as a contrast agent in MRI scans.",
+    65: "Discovered in 1843 by Carl Gustaf Mosander, it is one of four elements named after Ytterby, Sweden.",
+    66: "Discovered in 1886 by Paul-Émile Lecoq de Boisbaudran, its name comes from a Greek word meaning 'hard to get.'",
+    67: "First isolated in 1878, it has the highest magnetic permeability of any naturally occurring element.",
+    68: "Discovered in 1843 by Carl Gustaf Mosander, it is used to give glass and ceramic glazes a distinctive pink tint.",
+    69: "Discovered in 1879 by Per Teodor Cleve, it is one of the rarest and most expensive of the rare earth metals.",
+    70: "Discovered in 1878 by Jean Charles Galissard de Marignac, it is used in specialized lasers and portable X-ray devices.",
+    71: "Discovered in 1907 by Georges Urbain, it is the hardest and densest of the lanthanide elements.",
+    72: "Discovered in 1923 by Dirk Coster and George de Hevesy, its name comes from Hafnia, the Latin name for Copenhagen.",
+    73: "Discovered in 1802 by Anders Gustaf Ekeberg, it is named after Tantalus, a figure from Greek mythology, for its stubborn resistance to acids.",
+    74: "Isolated in 1783 by the Elhuyar brothers in Spain, it has the highest melting point of any metal known.",
+    75: "Discovered in 1925, it was one of the last naturally stable elements to be found and remains extremely rare and dense.",
+    76: "Discovered in 1803 by Smithson Tennant, it is the densest naturally occurring element on Earth.",
+    77: "Discovered in 1803 by Smithson Tennant, it is named after Iris, the Greek goddess of the rainbow, for its colorful salts.",
+    78: "Used by pre-Columbian South American cultures long before European chemists studied it in the 1700s.",
+    79: "Prized by nearly every human civilization for thousands of years for its rarity, permanence, and luster.",
+    80: "Known since antiquity, it is the only common metal that remains liquid at room temperature.",
+    81: "Discovered in 1861 by William Crookes, it is so toxic it earned the grim nickname 'the poisoner's poison.'",
+    82: "Used by the ancient Romans for pipes and cookware, it is now avoided in most products due to its toxicity.",
+    83: "Known since medieval times, it was often mistaken for lead or tin before chemists recognized it as distinct.",
+    84: "Discovered in 1898 by Marie and Pierre Curie, who named it after Poland, Marie Curie's native country.",
+    85: "First synthesized in 1940, it is the rarest naturally occurring element in Earth's crust.",
+    86: "Discovered in 1900 by Friedrich Ernst Dorn, this radioactive gas can seep into basements and is linked to lung cancer risk.",
+    87: "Discovered in 1939 by Marguerite Perey, it is one of the rarest and most unstable elements found in nature.",
+    88: "Discovered in 1898 by Marie and Pierre Curie, it was once used to paint glow-in-the-dark watch and clock dials.",
+    89: "Discovered in 1899 by André-Louis Debierne, it glows faintly blue in the dark due to its intense radioactivity.",
+    90: "Discovered in 1828 by Jöns Jacob Berzelius, it is being studied as a potentially safer alternative nuclear fuel.",
+    91: "First identified in 1913 and isolated in pure form in 1934, it remains extremely rare and radioactive.",
+    92: "Discovered in 1789 by Martin Heinrich Klaproth, it is the heaviest naturally occurring element found in significant quantity.",
+    93: "First synthesized in 1940, it was the first transuranium element ever created, opening the door to the later actinides.",
+    94: "First produced in 1940 by a team led by Glenn Seaborg, it was used as the explosive core of the Nagasaki bomb.",
+    95: "Discovered in 1944 by Glenn Seaborg's team, tiny amounts of it are used inside common household smoke detectors.",
+    96: "Discovered in 1944, it was named in honor of Marie and Pierre Curie for their pioneering work on radioactivity.",
+    97: "Discovered in 1949, it is named after Berkeley, California, home of the laboratory where it was first created.",
+    98: "Discovered in 1950 at the University of California, Berkeley, continuing a long run of elements made in that lab.",
+    99: "Discovered in 1952 in fallout debris from the first hydrogen bomb test, named after physicist Albert Einstein.",
+    100: "Discovered in 1952 in the same hydrogen bomb debris that revealed einsteinium, and named after physicist Enrico Fermi.",
+    101: "First created in 1955, it was the first element ever made one atom at a time rather than in bulk.",
+    102: "First reported in 1958, claims to its discovery were disputed by scientists for years afterward.",
+    103: "First synthesized in 1961, it is the final member of the actinide series of elements.",
+    104: "First synthesized in 1964, it exists for only brief moments in specialized laboratory equipment.",
+    105: "First synthesized in 1968, it is named after Dubna, Russia, home to the laboratory that helped create it.",
+    106: "First synthesized in 1974, it was for a time the only element named after a scientist who was still alive.",
+    107: "First synthesized in 1981 by researchers in Darmstadt, Germany.",
+    108: "First synthesized in 1984 by German researchers, and named after Hesse, the German state where it was made.",
+    109: "First synthesized in 1982, it is so radioactive that it survives for only a tiny fraction of a second.",
+    110: "First synthesized in 1994 in Darmstadt, Germany, the same city that gave the element its name.",
+    111: "First synthesized in 1994, it exists for only a fraction of a second before decaying away.",
+    112: "First synthesized in 1996 and formally confirmed as a new element in 2009 after years of verification.",
+    113: "First synthesized in 2004, it is the first element ever discovered by researchers working in Asia.",
+    114: "First synthesized in 1998 by researchers in Dubna, Russia, as part of the search for a theorized 'island of stability.'",
+    115: "First synthesized in 2003 by a joint Russian-American research team.",
+    116: "First synthesized in 2000, it is named after Lawrence Livermore National Laboratory in California.",
+    117: "First synthesized in 2010, it was the second-to-last element to be confirmed and added to the periodic table.",
+    118: "First synthesized in 2002, only a handful of its atoms have ever been detected, each existing for a tiny fraction of a second."
+  };
+
+  var CELL = 144;
+
+  var world = document.getElementById('world');
+  var objects = [];
+  var selectedObj = null;
+
+  ELEMENTS.forEach(function (e) {
+    var num = e[0], sym = e[1], name = e[2], cat = e[3], row = e[4], col = e[5];
+
+    var div = document.createElement('div');
+    div.className = 'element cat-' + cat;
+
+    var elNum = document.createElement('div');
+    elNum.className = 'number';
+    elNum.textContent = num;
+
+    var elSym = document.createElement('div');
+    elSym.className = 'symbol';
+    elSym.textContent = sym;
+
+    var elDet = document.createElement('div');
+    elDet.className = 'details';
+    elDet.textContent = name;
+
+    div.appendChild(elNum);
+    div.appendChild(elSym);
+    div.appendChild(elDet);
+    world.appendChild(div);
+
+    var tableRow = row <= 7 ? row : (row === 9 ? 8.5 : 9.5);
+    var tx = (col - 1) * CELL - 9 * CELL;
+    var ty = (tableRow - 1) * CELL - 4 * CELL;
+
+    var obj = {
+      el: div,
+      num: num,
+      sym: sym,
+      name: name,
+      cat: cat,
+      table: { x: tx, y: ty, z: 0, rx: 0, ry: 0 }
+    };
+
+    div.addEventListener('mouseenter', function (ev) {
+      showMeaningTip(name, MEANINGS[num], ev.clientX, ev.clientY);
+    });
+    div.addEventListener('mousemove', function (ev) {
+      positionMeaningTip(ev.clientX, ev.clientY);
+    });
+    div.addEventListener('mouseleave', function () {
+      hideMeaningTip();
+    });
+    div.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      pulseElement(obj);
+      selectElement(obj);
+    });
+
+    objects.push(obj);
+  });
+
+  var meaningTip = document.getElementById('meaning-tip');
+
+  function showMeaningTip(name, text, x, y) {
+    if (!text) return;
+    meaningTip.innerHTML = '<div class="tip-title">' + name + '</div>' + text;
+    meaningTip.classList.add('visible');
+    positionMeaningTip(x, y);
+  }
+
+  function positionMeaningTip(x, y) {
+    var offset = 16;
+    var tipWidth = meaningTip.offsetWidth || 220;
+    var left = x + offset;
+    if (left + tipWidth > window.innerWidth) {
+      left = x - offset - tipWidth;
+    }
+    meaningTip.style.left = left + 'px';
+    meaningTip.style.top = (y + offset) + 'px';
+  }
+
+  function hideMeaningTip() {
+    meaningTip.classList.remove('visible');
+  }
+
+  var cardOverlay = document.getElementById('card-overlay');
+  cardOverlay.addEventListener('click', function () {
+    deselectElement();
+  });
+
+  var infoPanel = document.getElementById('info-panel');
+  var panelNumber = infoPanel.querySelector('.panel-number');
+  var panelSymbol = infoPanel.querySelector('.panel-symbol');
+  var panelName = infoPanel.querySelector('.panel-name');
+  var panelCategory = infoPanel.querySelector('.panel-category');
+  var panelMeaning = infoPanel.querySelector('.panel-meaning');
+  var panelExtra = infoPanel.querySelector('.panel-extra');
+  var panelClose = infoPanel.querySelector('.panel-close');
+  var infoPanelCurrentCat = null;
+
+  var CARD_W = 300;
+  var CARD_H = 380;
+
+  function flyCardIn(rect, cat) {
+    if (infoPanelCurrentCat) {
+      infoPanel.classList.remove('cat-' + infoPanelCurrentCat);
+    }
+    infoPanel.classList.add('cat-' + cat);
+    infoPanelCurrentCat = cat;
+
+    infoPanel.classList.add('visible');
+
+    infoPanel.style.transition = 'none';
+    infoPanel.style.left = '50%';
+    infoPanel.style.top = '50%';
+    infoPanel.style.right = 'auto';
+    infoPanel.style.bottom = 'auto';
+    infoPanel.style.width = CARD_W + 'px';
+    infoPanel.style.height = CARD_H + 'px';
+    infoPanel.style.marginLeft = (-CARD_W / 2) + 'px';
+    infoPanel.style.marginTop = (-CARD_H / 2) + 'px';
+
+    var scaleX = rect.width / CARD_W;
+    var scaleY = rect.height / CARD_H;
+    var dx = (rect.left + rect.width / 2) - window.innerWidth / 2;
+    var dy = (rect.top + rect.height / 2) - window.innerHeight / 2;
+
+    infoPanel.style.opacity = '0';
+    infoPanel.style.transform =
+      'translate(' + dx + 'px,' + dy + 'px) scale(' + scaleX + ',' + scaleY + ')';
+
+    void infoPanel.offsetWidth;
+
+    infoPanel.style.transition =
+      'transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease-out';
+    infoPanel.style.opacity = '1';
+    infoPanel.style.transform = 'translate(0px,0px) scale(1,1)';
+  }
+
+  function flyCardOut() {
+    infoPanel.style.transition = 'transform 0.3s ease-in, opacity 0.3s ease-in';
+    infoPanel.style.opacity = '0';
+    infoPanel.style.transform = 'translate(0px,0px) scale(0.85,0.85)';
+
+    setTimeout(function () {
+      infoPanel.classList.remove('visible');
+      infoPanel.style.transition = '';
+      infoPanel.style.transform = '';
+      infoPanel.style.opacity = '';
+      infoPanel.style.left = '';
+      infoPanel.style.top = '';
+      infoPanel.style.right = '';
+      infoPanel.style.bottom = '';
+      infoPanel.style.width = '';
+      infoPanel.style.height = '';
+      infoPanel.style.marginLeft = '';
+      infoPanel.style.marginTop = '';
+      if (infoPanelCurrentCat) {
+        infoPanel.classList.remove('cat-' + infoPanelCurrentCat);
+        infoPanelCurrentCat = null;
+      }
+    }, 300);
+  }
+
+  function selectElement(obj) {
+    if (selectedObj === obj) {
+      deselectElement();
+      return;
+    }
+    if (selectedObj) {
+      selectedObj.el.classList.remove('selected');
+    }
+    selectedObj = obj;
+    obj.el.classList.add('selected');
+
+    panelNumber.textContent = 'Element ' + obj.num;
+    panelSymbol.textContent = obj.sym;
+    panelName.textContent = obj.name;
+    panelCategory.textContent = obj.cat.replace(/([a-z])([A-Z])/g, '$1 $2');
+    panelMeaning.textContent = MEANINGS[obj.num] || '';
+    panelExtra.textContent = EXTRA_INFO[obj.num] || '';
+
+    var rect = obj.el.getBoundingClientRect();
+    flyCardIn(rect, obj.cat);
+    cardOverlay.classList.add('visible');
+  }
+
+  function deselectElement() {
+    if (selectedObj) {
+      selectedObj.el.classList.remove('selected');
+      selectedObj = null;
+    }
+    flyCardOut();
+    cardOverlay.classList.remove('visible');
+  }
+
+  panelClose.addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    deselectElement();
+  });
+
+  var vector = { x: 0, y: 0, z: 0 };
+
+  (function () {
+    var n = objects.length;
+    for (var i = 0; i < n; i++) {
+      var phi = Math.acos(-1 + (2 * i) / n);
+      var theta = Math.sqrt(n * Math.PI) * phi;
+      var radius = 900;
+
+      var x = radius * Math.cos(theta) * Math.sin(phi);
+      var y = radius * Math.sin(theta) * Math.sin(phi);
+      var z = radius * Math.cos(phi);
+
+      var obj = objects[i];
+      obj.sphere = { x: x, y: y, z: z };
+
+      var rad2deg = 180 / Math.PI;
+      var ry = -Math.atan2(-z, x) * rad2deg + 90;
+      var rx = Math.atan2(Math.sqrt(x * x + z * z), y) * rad2deg - 90;
+      obj.sphere.rx = rx;
+      obj.sphere.ry = ry;
+    }
+  })();
+
+  (function () {
+    var n = objects.length;
+    for (var i = 0; i < n; i++) {
+      var theta = i * 0.175;
+      var y = -(i * 8) + 450;
+      var radius = 900;
+
+      var x = radius * Math.sin(theta);
+      var z = radius * Math.cos(theta);
+
+      var obj = objects[i];
+      var ry = -theta * 180 / Math.PI + 90;
+      obj.helix = { x: x, y: y, z: z, rx: 0, ry: ry };
+    }
+  })();
+
+  (function () {
+    var n = objects.length;
+    var cols = 12;
+    for (var i = 0; i < n; i++) {
+      var col = i % cols;
+      var row = Math.floor(i / cols);
+      var x = col * CELL - (cols - 1) * CELL / 2;
+      var y = row * CELL - 4.5 * CELL;
+      var z = 0;
+      objects[i].grid = { x: x, y: y, z: z, rx: 0, ry: 0 };
+    }
+  })();
+
+  function applyTarget(name) {
+    objects.forEach(function (obj, i) {
+      var t = obj[name];
+      setTimeout(function () {
+        var s = 'translate3d(' + t.x + 'px,' + t.y + 'px,' + t.z + 'px) '
+          + 'rotateX(' + (t.rx || 0) + 'deg) rotateY(' + (t.ry || 0) + 'deg)';
+        obj.baseTransform = s;
+        obj.el.style.transform = s;
+      }, i * 6);
+    });
+  }
+
+  var PULSE_KEYFRAMES = [
+    { t: 0,    s: 1 },
+    { t: 0.35, s: 1.28 },
+    { t: 0.6,  s: 0.94 },
+    { t: 1,    s: 1 }
+  ];
+
+  function pulseScaleAt(progress) {
+    for (var i = 1; i < PULSE_KEYFRAMES.length; i++) {
+      var a = PULSE_KEYFRAMES[i - 1], b = PULSE_KEYFRAMES[i];
+      if (progress <= b.t) {
+        var localT = (progress - a.t) / (b.t - a.t || 1);
+        return a.s + (b.s - a.s) * localT;
+      }
+    }
+    return 1;
+  }
+
+  var PULSE_TRANSITION = 'background-color 0.6s, box-shadow 0.6s, opacity 0.6s';
+
+  function pulseElement(obj) {
+    var duration = 420;
+    var start = null;
+    obj.el.style.transition = PULSE_TRANSITION;
+
+    function step(ts) {
+      if (start === null) start = ts;
+      var progress = Math.min((ts - start) / duration, 1);
+      var scale = pulseScaleAt(progress);
+      obj.el.style.transform = (obj.baseTransform || '') + ' scale(' + scale + ')';
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        obj.el.style.transition = '';
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  var world_rx = -12, world_ry = 12;
+  var target_rx = world_rx, target_ry = world_ry;
+  var world_zoom = -1800;
+
+  var MAX_TILT = 35;
+  var isDragging = false;
+  var lastX = 0, lastY = 0;
+
+  function updateWorldTransform() {
+    world.style.transform =
+      'translateZ(' + world_zoom + 'px) rotateX(' + world_rx + 'deg) rotateY(' + world_ry + 'deg)';
+  }
+
+  function animate() {
+    world_rx += (target_rx - world_rx) * 0.09;
+    world_ry += (target_ry - world_ry) * 0.09;
+    updateWorldTransform();
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  var container = document.getElementById('container');
+
+  function setTiltFromPoint(clientX, clientY) {
+    var nx = (clientX / window.innerWidth) * 2 - 1;
+    var ny = (clientY / window.innerHeight) * 2 - 1;
+    target_ry = 12 + nx * MAX_TILT;
+    target_rx = -12 - ny * MAX_TILT;
+  }
+
+  function updateCursorStyle() {
+    container.style.cursor = isDragging ? 'grabbing' : 'grab';
+  }
+
+  container.addEventListener('mousedown', function (e) {
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    updateCursorStyle();
+  });
+
+  container.addEventListener('click', function (e) {
+    if (e.target === container || e.target.id === 'scene' || e.target.id === 'world') {
+      deselectElement();
+    }
+  });
+
+  window.addEventListener('mouseup', function () {
+    isDragging = false;
+    updateCursorStyle();
+  });
+
+  window.addEventListener('mousemove', function (e) {
+    if (isDragging) {
+      var dx = e.clientX - lastX;
+      var dy = e.clientY - lastY;
+      target_ry += dx * 0.35;
+      target_rx -= dy * 0.35;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    } else {
+      setTiltFromPoint(e.clientX, e.clientY);
+    }
+  });
+
+  container.addEventListener('touchstart', function (e) {
+    if (!e.touches.length) return;
+    isDragging = true;
+    lastX = e.touches[0].clientX;
+    lastY = e.touches[0].clientY;
+  }, { passive: true });
+
+  window.addEventListener('touchend', function () { isDragging = false; });
+
+  window.addEventListener('touchmove', function (e) {
+    if (!e.touches || !e.touches.length) return;
+    if (isDragging) {
+      var dx = e.touches[0].clientX - lastX;
+      var dy = e.touches[0].clientY - lastY;
+      target_ry += dx * 0.35;
+      target_rx -= dy * 0.35;
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+    } else {
+      setTiltFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  }, { passive: true });
+
+  updateWorldTransform();
+  updateCursorStyle();
+
+  var buttons = document.querySelectorAll('#menu button');
+
+  var DEFAULT_ANGLES = {
+    table:  { rx: -12, ry: 12 },
+    sphere: { rx: -12, ry: 12 },
+    helix:  { rx: -78, ry: 8 },
+    grid:   { rx: -12, ry: 12 }
+  };
+
+  function setMode(mode) {
+    buttons.forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-mode') === mode);
+    });
+    isDragging = false;
+    updateCursorStyle();
+    var a = DEFAULT_ANGLES[mode];
+    if (a) { target_rx = a.rx; target_ry = a.ry; }
+    applyTarget(mode);
+  }
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      setMode(b.getAttribute('data-mode'));
+    });
+  });
+
+  setMode('sphere');
+})();
+</script>
+</body>
+</html>
